@@ -1,0 +1,24 @@
+workflows:
+  android-apk:
+    name: Asan Share APK
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      java: 17
+    scripts:
+      - name: Build APK
+        script: |
+          # Find the project folder (works if files are in the repo root OR inside a folder)
+          PROJ=$(dirname "$(find "$CM_BUILD_DIR" -maxdepth 3 -name settings.gradle.kts -not -path '*/build/*' | head -n 1)")
+          echo "Project folder: $PROJ"
+          cd "$PROJ"
+          if [ ! -f gradlew ]; then
+            mkdir -p /tmp/wrap && cd /tmp/wrap && touch settings.gradle
+            gradle wrapper --gradle-version 8.9 --distribution-type bin
+            cd "$PROJ"
+            cp -r /tmp/wrap/gradle /tmp/wrap/gradlew .
+          fi
+          chmod +x gradlew
+          ./gradlew assembleRelease
+    artifacts:
+      - "**/outputs/apk/**/*.apk"
