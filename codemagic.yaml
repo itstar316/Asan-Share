@@ -8,8 +8,29 @@ workflows:
     scripts:
       - name: Build APK
         script: |
-          # Find the project folder (works if files are in the repo root OR inside a folder)
-          PROJ=$(dirname "$(find "$CM_BUILD_DIR" -maxdepth 3 -name settings.gradle.kts -not -path '*/build/*' | head -n 1)")
+          set -e
+          findproj() {
+            find "$1" -maxdepth 4 -name settings.gradle.kts -not -path '*/build/*' -not -path '*/__MACOSX/*' | head -n 1
+          }
+          SETTINGS=$(findproj "$CM_BUILD_DIR")
+          # If the repo only has a .zip, unzip it first
+          if [ -z "$SETTINGS" ]; then
+            ZIP=$(find "$CM_BUILD_DIR" -maxdepth 3 -name '*.zip' | head -n 1)
+            if [ -z "$ZIP" ]; then
+              echo "ERROR: No project files and no .zip found in the repo."
+              ls -la "$CM_BUILD_DIR"
+              exit 1
+            fi
+            echo "Unzipping $ZIP"
+            mkdir -p "$CM_BUILD_DIR/unzipped"
+            unzip -q -o "$ZIP" -d "$CM_BUILD_DIR/unzipped"
+            SETTINGS=$(findproj "$CM_BUILD_DIR/unzipped")
+          fi
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle.kts not found."
+            exit 1
+          fi
+          PROJ=$(dirname "$SETTINGS")
           echo "Project folder: $PROJ"
           cd "$PROJ"
           if [ ! -f gradlew ]; then
