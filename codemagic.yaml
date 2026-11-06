@@ -13,23 +13,23 @@ workflows:
             find "$1" -maxdepth 4 -name settings.gradle.kts -not -path '*/build/*' -not -path '*/__MACOSX/*' | head -n 1
           }
           SETTINGS=$(findproj "$CM_BUILD_DIR")
-          # If the repo only has a .zip, unzip it first
           if [ -z "$SETTINGS" ]; then
-            ZIP=$(find "$CM_BUILD_DIR" -maxdepth 3 -name '*.zip' | head -n 1)
-            if [ -z "$ZIP" ]; then
-              echo "ERROR: No project files and no .zip found in the repo."
-              ls -la "$CM_BUILD_DIR"
+            # Use AsanShare.zip. If there are several zips, refuse to guess (an old zip would build an old app).
+            ZIPS=$(find "$CM_BUILD_DIR" -maxdepth 3 -name '*.zip')
+            COUNT=$(echo "$ZIPS" | grep -c . || true)
+            if [ -f "$CM_BUILD_DIR/AsanShare.zip" ]; then ZIP="$CM_BUILD_DIR/AsanShare.zip"
+            elif [ "$COUNT" = "1" ]; then ZIP="$ZIPS"
+            else
+              echo "ERROR: found $COUNT zip files. Keep only ONE (named AsanShare.zip) in the repo:"
+              echo "$ZIPS"
               exit 1
             fi
             echo "Unzipping $ZIP"
-            mkdir -p "$CM_BUILD_DIR/unzipped"
+            rm -rf "$CM_BUILD_DIR/unzipped"; mkdir -p "$CM_BUILD_DIR/unzipped"
             unzip -q -o "$ZIP" -d "$CM_BUILD_DIR/unzipped"
             SETTINGS=$(findproj "$CM_BUILD_DIR/unzipped")
           fi
-          if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle.kts not found."
-            exit 1
-          fi
+          if [ -z "$SETTINGS" ]; then echo "ERROR: settings.gradle.kts not found."; exit 1; fi
           PROJ=$(dirname "$SETTINGS")
           echo "Project folder: $PROJ"
           cd "$PROJ"
